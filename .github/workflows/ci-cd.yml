@@ -44,10 +44,16 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      - name: Get package version
+        id: package_version
+        run: echo "VERSION=$(jq -r .version package.json)" >> $GITHUB_ENV
+
       - name: Build and Push Docker Image
         run: |
-          docker build -t myapp:latest .
-          docker tag myapp:latest ${{ secrets.DOCKER_USERNAME }}/myapp:latest
+          docker build -t myapp:${{ env.VERSION }} .
+          docker tag myapp:${{ env.VERSION }} ${{ secrets.DOCKER_USERNAME }}/myapp:${{ env.VERSION }}
+          docker tag myapp:${{ env.VERSION }} ${{ secrets.DOCKER_USERNAME }}/myapp:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/myapp:${{ env.VERSION }}
           docker push ${{ secrets.DOCKER_USERNAME }}/myapp:latest
 
   deploy:
@@ -62,7 +68,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            docker pull ${{ secrets.DOCKER_USERNAME }}/myapp:latest
+            docker pull ${{ secrets.DOCKER_USERNAME }}/myapp:${{ env.VERSION }}
             docker stop myapp || true
             docker rm myapp || true
-            docker run -d --name myapp -p 80:3000 ${{ secrets.DOCKER_USERNAME }}/myapp:latest
+            docker run -d --name myapp -p 80:3000 ${{ secrets.DOCKER_USERNAME }}/myapp:${{ env.VERSION }}
